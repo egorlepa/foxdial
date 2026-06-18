@@ -730,6 +730,10 @@ function showContextMenu(x, y, { tileId = null, groupId = null } = {}) {
   contextMenu.querySelectorAll(".ctx__tab-only").forEach((el) => {
     el.style.display = mode === "tab" ? "" : "none";
   });
+  // Последнюю группу удалять нельзя — прячем пункт.
+  if (mode === "tab" && groups.length <= 1) {
+    contextMenu.querySelector('[data-action="delete-group"]').style.display = "none";
+  }
   if (mode === "tile") populateMoveSubmenu(tileId);
 
   contextMenu.hidden = false;
