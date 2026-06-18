@@ -1,0 +1,15 @@
+# Node / tooling
+node_modules/
+npm-debug.log*
+
+# web-ext build output
+web-ext-artifacts/
+
+# Packaged builds
+*.zip
+*.xpi
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+*.swp
