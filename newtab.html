@@ -1,20 +1,20 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Новая вкладка</title>
+  <title>New Tab</title>
   <link rel="stylesheet" href="newtab.css">
 </head>
 <body>
-  <button id="settings-btn" class="settings-btn" title="Настройки" aria-label="Настройки">⚙</button>
+  <button id="settings-btn" class="settings-btn" title="Settings" aria-label="Settings">⚙</button>
 
   <main class="dial">
     <nav id="tabs" class="tabs"></nav>
     <ul id="grid" class="grid"></ul>
   </main>
 
-  <!-- Шаблон плитки сайта -->
+  <!-- Site tile template -->
   <template id="tile-template">
     <li class="tile" draggable="true">
       <a class="tile__link" href="#">
@@ -24,100 +24,100 @@
     </li>
   </template>
 
-  <!-- Контекстное меню (правый клик) -->
+  <!-- Context menu (right click) -->
   <nav id="context-menu" class="ctx" hidden>
-    <button type="button" class="ctx__item ctx__bg-only" data-action="add">Добавить сайт</button>
-    <button type="button" class="ctx__item ctx__bg-only" data-action="create-group">Создать группу</button>
-    <button type="button" class="ctx__item ctx__tile-only" data-action="edit">Редактировать</button>
+    <button type="button" class="ctx__item ctx__bg-only" data-action="add">Add site</button>
+    <button type="button" class="ctx__item ctx__bg-only" data-action="create-group">New group</button>
+    <button type="button" class="ctx__item ctx__tile-only" data-action="edit">Edit</button>
     <div class="ctx__item ctx__tile-only ctx__has-sub" data-action="move">
-      <span>Переместить в группу</span><span>▸</span>
+      <span>Move to group</span><span>▸</span>
       <div id="ctx-move-sub" class="ctx__submenu"></div>
     </div>
-    <button type="button" class="ctx__item ctx__tile-only" data-action="remove">Удалить</button>
-    <button type="button" class="ctx__item ctx__tab-only" data-action="rename-group">Переименовать группу</button>
-    <button type="button" class="ctx__item ctx__tab-only" data-action="delete-group">Удалить группу</button>
+    <button type="button" class="ctx__item ctx__tile-only" data-action="remove">Delete</button>
+    <button type="button" class="ctx__item ctx__tab-only" data-action="rename-group">Rename group</button>
+    <button type="button" class="ctx__item ctx__tab-only" data-action="delete-group">Delete group</button>
   </nav>
 
-  <!-- Диалог добавления/редактирования -->
+  <!-- Add / edit dialog -->
   <dialog id="dialog" class="dialog">
     <form id="dialog-form" method="dialog" class="dialog__form">
-      <h2 id="dialog-title" class="dialog__heading">Добавить сайт</h2>
+      <h2 id="dialog-title" class="dialog__heading">Add site</h2>
       <label class="dialog__field">
-        <span>Название</span>
-        <input id="field-title" type="text" placeholder="Например, GitHub" required maxlength="40">
+        <span>Name</span>
+        <input id="field-title" type="text" placeholder="e.g. GitHub" required maxlength="40">
       </label>
       <label class="dialog__field">
-        <span>Адрес (URL)</span>
+        <span>URL</span>
         <input id="field-url" type="url" placeholder="https://github.com" required>
       </label>
       <label class="dialog__field">
-        <span>Группа</span>
+        <span>Group</span>
         <select id="field-group"></select>
       </label>
       <div class="dialog__field">
-        <span>Иконка</span>
+        <span>Icon</span>
         <div id="icon-choices" class="icon-choices"></div>
       </div>
       <div class="dialog__buttons">
-        <button type="button" id="dialog-cancel" class="btn btn--ghost">Отмена</button>
-        <button type="submit" class="btn btn--primary">Сохранить</button>
+        <button type="button" id="dialog-cancel" class="btn btn--ghost">Cancel</button>
+        <button type="submit" class="btn btn--primary">Save</button>
       </div>
     </form>
   </dialog>
 
-  <!-- Диалог создания/переименования группы -->
+  <!-- Create / rename group dialog -->
   <dialog id="group-dialog" class="dialog">
     <form id="group-form" method="dialog" class="dialog__form">
-      <h2 id="group-dialog-title" class="dialog__heading">Новая группа</h2>
+      <h2 id="group-dialog-title" class="dialog__heading">New group</h2>
       <label class="dialog__field">
-        <span>Название группы</span>
-        <input id="group-name" type="text" placeholder="Например, Работа" required maxlength="30">
+        <span>Group name</span>
+        <input id="group-name" type="text" placeholder="e.g. Work" required maxlength="30">
       </label>
       <div class="dialog__buttons">
-        <button type="button" id="group-cancel" class="btn btn--ghost">Отмена</button>
-        <button type="submit" class="btn btn--primary">Сохранить</button>
+        <button type="button" id="group-cancel" class="btn btn--ghost">Cancel</button>
+        <button type="submit" class="btn btn--primary">Save</button>
       </div>
     </form>
   </dialog>
 
-  <!-- Диалог настроек вида -->
+  <!-- Appearance settings dialog -->
   <dialog id="settings-dialog" class="dialog">
     <form id="settings-form" method="dialog" class="dialog__form">
-      <h2 class="dialog__heading">Настройки вида</h2>
+      <h2 class="dialog__heading">Appearance</h2>
 
       <label class="dialog__field">
-        <span>Колонок: <output id="cols-output"></output></span>
+        <span>Columns: <output id="cols-output"></output></span>
         <input id="set-columns" type="range" min="2" max="8" step="1">
       </label>
 
       <label class="dialog__field">
-        <span>Ширина плитки: <output id="width-output"></output></span>
+        <span>Tile width: <output id="width-output"></output></span>
         <input id="set-width" type="range" min="80" max="360" step="5">
       </label>
 
       <label class="dialog__field">
-        <span>Высота плитки: <output id="height-output"></output></span>
+        <span>Tile height: <output id="height-output"></output></span>
         <input id="set-height" type="range" min="70" max="320" step="5">
       </label>
 
       <label class="dialog__field dialog__field--row">
         <input id="set-follow-theme" type="checkbox">
-        <span>Подстраивать фон под системную тему</span>
+        <span>Match system theme</span>
       </label>
 
       <label class="dialog__field">
-        <span>Цвет фона</span>
+        <span>Background color</span>
         <input id="set-bg-color" type="color">
       </label>
 
       <label class="dialog__field">
-        <span>Фоновая картинка (URL, необязательно)</span>
+        <span>Background image (URL, optional)</span>
         <input id="set-bg-image" type="url" placeholder="https://...jpg">
       </label>
 
       <div class="dialog__buttons">
-        <button type="button" id="settings-reset" class="btn btn--ghost">Сбросить</button>
-        <button type="submit" class="btn btn--primary">Готово</button>
+        <button type="button" id="settings-reset" class="btn btn--ghost">Reset</button>
+        <button type="submit" class="btn btn--primary">Done</button>
       </div>
     </form>
   </dialog>

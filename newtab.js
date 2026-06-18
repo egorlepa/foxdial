@@ -86,7 +86,7 @@ async function loadGroups() {
   }
   // Миграция со старого плоского списка плиток.
   const oldDials = Array.isArray(stored[STORAGE_KEY]) ? stored[STORAGE_KEY] : DEFAULT_DIALS;
-  const migrated = [{ id: makeId(), name: "Основное", dials: oldDials }];
+  const migrated = [{ id: makeId(), name: "General", dials: oldDials }];
   await browser.storage.local.set({ [GROUPS_KEY]: migrated });
   return migrated;
 }
@@ -427,7 +427,7 @@ function openDialog(dial) {
   editingId = dial ? dial.id : null;
   editingGroupId = dial ? (findDial(dial.id)?.group.id ?? activeGroupId) : activeGroupId;
   selectedIcon = dial ? (dial.icon || "") : "";
-  dialogTitle.textContent = dial ? "Редактировать сайт" : "Добавить сайт";
+  dialogTitle.textContent = dial ? "Edit site" : "Add site";
   fieldTitle.value = dial ? dial.title : "";
   fieldUrl.value = dial ? dial.url : "";
 
@@ -572,7 +572,7 @@ function renderIconChoices() {
   if (!hostOf(url)) {
     const hint = document.createElement("span");
     hint.className = "icon-choices__empty";
-    hint.textContent = "Введите адрес — появятся варианты иконки";
+    hint.textContent = "Enter a URL to see icon options";
     iconChoices.appendChild(hint);
     return;
   }
@@ -638,7 +638,7 @@ async function maybeScrape(url, reqId) {
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "icon-more-btn";
-  btn.textContent = "Найти ещё на сайте";
+  btn.textContent = "Find more on the site";
   btn.addEventListener("click", async () => {
     let ok = false;
     try {
@@ -759,7 +759,7 @@ function populateMoveSubmenu(tileId) {
   if (!others.length) {
     const empty = document.createElement("span");
     empty.className = "ctx__submenu-empty";
-    empty.textContent = "Нет других групп";
+    empty.textContent = "No other groups";
     ctxMoveSub.appendChild(empty);
     return;
   }
@@ -837,7 +837,7 @@ document.addEventListener("keydown", (e) => {
 function openGroupDialog(id) {
   groupEditId = id;
   const group = id ? groups.find((g) => g.id === id) : null;
-  groupDialogTitle.textContent = id ? "Переименовать группу" : "Новая группа";
+  groupDialogTitle.textContent = id ? "Rename group" : "New group";
   groupNameInput.value = group ? group.name : "";
   groupDialog.showModal();
   groupNameInput.focus();
@@ -868,7 +868,7 @@ async function deleteGroup(id) {
   if (groups.length <= 1) return; // последнюю группу не удаляем
   const group = groups.find((g) => g.id === id);
   if (group && group.dials.length &&
-      !confirm(`Удалить группу «${group.name}» со всеми плитками (${group.dials.length})?`)) {
+      !confirm(`Delete group “${group.name}” and all its tiles (${group.dials.length})?`)) {
     return;
   }
   groups = groups.filter((g) => g.id !== id);

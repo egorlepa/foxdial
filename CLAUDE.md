@@ -51,7 +51,8 @@ Migrations live in `loadGroups()` / `loadSettings()` — keep them when changing
 
 ## Conventions
 
-- Comments and UI strings are in Russian; match that.
+- UI strings are in English (`lang="en"`). Some inline code comments are still in Russian —
+  fine to translate as you touch them; no need for a dedicated pass.
 - No frameworks. Prefer the existing helpers; don't add a build step or dependencies.
 - Bump `version` in `manifest.json` for releases. `strict_min_version` is 127 (needed for
   `optional_host_permissions`).

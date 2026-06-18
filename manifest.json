@@ -2,10 +2,11 @@
   "manifest_version": 3,
   "name": "FoxDial",
   "version": "1.0.0",
-  "description": "Простой Speed Dial — сетка плиток с любимыми сайтами на странице новой вкладки.",
+  "description": "A simple speed dial — a grid of your favorite site tiles on the new-tab page.",
   "icons": {
     "48": "icons/icon-48.png",
-    "96": "icons/icon-96.png"
+    "96": "icons/icon-96.png",
+    "128": "icons/icon-128.png"
   },
   "permissions": ["storage", "unlimitedStorage"],
   "optional_host_permissions": ["<all_urls>"],

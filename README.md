@@ -39,12 +39,12 @@
 
 | Action | How |
 |--------|-----|
-| Add a site | Right-click empty space → **Добавить сайт** |
-| Edit / delete a tile | Right-click a tile → **Редактировать / Удалить** |
+| Add a site | Right-click empty space → **Add site** |
+| Edit / delete a tile | Right-click a tile → **Edit / Delete** |
 | Reorder tiles | Drag a tile onto another |
-| Create a group | Right-click empty space → **Создать группу** |
+| Create a group | Right-click empty space → **New group** |
 | Rename / delete a group | Right-click a group tab |
-| Move a tile to another group | Right-click a tile → **Переместить в группу**, or change it in the edit dialog |
+| Move a tile to another group | Right-click a tile → **Move to group**, or change it in the edit dialog |
 | Open settings | ⚙ button (top-right) |
 
 ## Tech
