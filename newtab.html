@@ -10,6 +10,7 @@
   <button id="settings-btn" class="settings-btn" title="Настройки" aria-label="Настройки">⚙</button>
 
   <main class="dial">
+    <nav id="tabs" class="tabs"></nav>
     <ul id="grid" class="grid"></ul>
   </main>
 
@@ -26,8 +27,15 @@
   <!-- Контекстное меню (правый клик) -->
   <nav id="context-menu" class="ctx" hidden>
     <button type="button" class="ctx__item ctx__bg-only" data-action="add">Добавить сайт</button>
+    <button type="button" class="ctx__item ctx__bg-only" data-action="create-group">Создать группу</button>
     <button type="button" class="ctx__item ctx__tile-only" data-action="edit">Редактировать</button>
+    <div class="ctx__item ctx__tile-only ctx__has-sub" data-action="move">
+      <span>Переместить в группу</span><span>▸</span>
+      <div id="ctx-move-sub" class="ctx__submenu"></div>
+    </div>
     <button type="button" class="ctx__item ctx__tile-only" data-action="remove">Удалить</button>
+    <button type="button" class="ctx__item ctx__tab-only" data-action="rename-group">Переименовать группу</button>
+    <button type="button" class="ctx__item ctx__tab-only" data-action="delete-group">Удалить группу</button>
   </nav>
 
   <!-- Диалог добавления/редактирования -->
@@ -42,12 +50,31 @@
         <span>Адрес (URL)</span>
         <input id="field-url" type="url" placeholder="https://github.com" required>
       </label>
+      <label class="dialog__field">
+        <span>Группа</span>
+        <select id="field-group"></select>
+      </label>
       <div class="dialog__field">
         <span>Иконка</span>
         <div id="icon-choices" class="icon-choices"></div>
       </div>
       <div class="dialog__buttons">
         <button type="button" id="dialog-cancel" class="btn btn--ghost">Отмена</button>
+        <button type="submit" class="btn btn--primary">Сохранить</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Диалог создания/переименования группы -->
+  <dialog id="group-dialog" class="dialog">
+    <form id="group-form" method="dialog" class="dialog__form">
+      <h2 id="group-dialog-title" class="dialog__heading">Новая группа</h2>
+      <label class="dialog__field">
+        <span>Название группы</span>
+        <input id="group-name" type="text" placeholder="Например, Работа" required maxlength="30">
+      </label>
+      <div class="dialog__buttons">
+        <button type="button" id="group-cancel" class="btn btn--ghost">Отмена</button>
         <button type="submit" class="btn btn--primary">Сохранить</button>
       </div>
     </form>

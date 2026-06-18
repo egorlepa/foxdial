@@ -1,6 +1,8 @@
 "use strict";
 
-const STORAGE_KEY = "dials";
+const STORAGE_KEY = "dials"; // старый ключ (для миграции)
+const GROUPS_KEY = "groups";
+const ACTIVE_KEY = "activeGroup";
 const SETTINGS_KEY = "settings";
 const MIN_ICON_SIZE = 64; // мельче — не показываем в выборе
 
@@ -30,16 +32,25 @@ function faviconSize(width, height) {
 }
 
 const grid = document.getElementById("grid");
+const tabs = document.getElementById("tabs");
 const tileTemplate = document.getElementById("tile-template");
 const contextMenu = document.getElementById("context-menu");
+const ctxMoveSub = document.getElementById("ctx-move-sub");
 
 const dialog = document.getElementById("dialog");
 const form = document.getElementById("dialog-form");
 const dialogTitle = document.getElementById("dialog-title");
 const fieldTitle = document.getElementById("field-title");
 const fieldUrl = document.getElementById("field-url");
+const fieldGroup = document.getElementById("field-group");
 const iconChoices = document.getElementById("icon-choices");
 const cancelBtn = document.getElementById("dialog-cancel");
+
+const groupDialog = document.getElementById("group-dialog");
+const groupForm = document.getElementById("group-form");
+const groupDialogTitle = document.getElementById("group-dialog-title");
+const groupNameInput = document.getElementById("group-name");
+const groupCancel = document.getElementById("group-cancel");
 
 const settingsBtn = document.getElementById("settings-btn");
 const settingsDialog = document.getElementById("settings-dialog");
@@ -55,27 +66,58 @@ const setBgColor = document.getElementById("set-bg-color");
 const setBgImage = document.getElementById("set-bg-image");
 const settingsReset = document.getElementById("settings-reset");
 
-let dials = [];
+let groups = []; // [{ id, name, dials: [...] }]
+let activeGroupId = null;
 let settings = { ...DEFAULT_SETTINGS };
 let editingId = null; // id редактируемой плитки или null при добавлении
+let editingGroupId = null; // группа редактируемой плитки
 let selectedIcon = ""; // выбранная иконка: "" (авто), URL или "monogram"
 let dragId = null; // id перетаскиваемой плитки
 let ctxTargetId = null; // id плитки под контекстным меню (или null для фона)
+let ctxTargetGroupId = null; // id группы под контекстным меню (правый клик по вкладке)
+let groupEditId = null; // id группы в диалоге группы (null = создание)
 
 // --- Хранилище ---
 
-async function loadDials() {
-  const stored = await browser.storage.local.get(STORAGE_KEY);
-  if (Array.isArray(stored[STORAGE_KEY])) {
-    return stored[STORAGE_KEY];
+async function loadGroups() {
+  const stored = await browser.storage.local.get([GROUPS_KEY, STORAGE_KEY]);
+  if (Array.isArray(stored[GROUPS_KEY]) && stored[GROUPS_KEY].length) {
+    return stored[GROUPS_KEY];
   }
-  await saveDials(DEFAULT_DIALS);
-  return DEFAULT_DIALS;
+  // Миграция со старого плоского списка плиток.
+  const oldDials = Array.isArray(stored[STORAGE_KEY]) ? stored[STORAGE_KEY] : DEFAULT_DIALS;
+  const migrated = [{ id: makeId(), name: "Основное", dials: oldDials }];
+  await browser.storage.local.set({ [GROUPS_KEY]: migrated });
+  return migrated;
 }
 
-async function saveDials(next) {
-  dials = next;
-  await browser.storage.local.set({ [STORAGE_KEY]: next });
+async function saveGroups() {
+  await browser.storage.local.set({ [GROUPS_KEY]: groups });
+}
+
+async function loadActive() {
+  const stored = await browser.storage.local.get(ACTIVE_KEY);
+  return stored[ACTIVE_KEY];
+}
+
+async function setActiveGroup(id) {
+  activeGroupId = id;
+  await browser.storage.local.set({ [ACTIVE_KEY]: id });
+}
+
+// --- Доступ к группам/плиткам ---
+
+function activeGroup() {
+  return groups.find((g) => g.id === activeGroupId) || groups[0];
+}
+
+// Найти плитку и её группу по id плитки.
+function findDial(id) {
+  for (const group of groups) {
+    const dial = group.dials.find((d) => d.id === id);
+    if (dial) return { group, dial };
+  }
+  return null;
 }
 
 async function loadSettings() {
@@ -295,10 +337,27 @@ function paintFavicon(el, icon, dial) {
 
 // --- Рендер ---
 
+function renderTabs() {
+  tabs.textContent = "";
+  for (const group of groups) {
+    const tab = document.createElement("button");
+    tab.type = "button";
+    tab.className = "tab" + (group.id === activeGroupId ? " tab--active" : "");
+    tab.dataset.groupId = group.id;
+    tab.textContent = group.name;
+    tab.addEventListener("click", async () => {
+      await setActiveGroup(group.id);
+      renderTabs();
+      render();
+    });
+    tabs.appendChild(tab);
+  }
+}
+
 function render() {
   grid.textContent = "";
 
-  for (const dial of dials) {
+  for (const dial of activeGroup().dials) {
     const node = tileTemplate.content.firstElementChild.cloneNode(true);
     const link = node.querySelector(".tile__link");
     const favicon = node.querySelector(".tile__favicon");
@@ -349,16 +408,16 @@ function attachDnD(node) {
   });
 }
 
-// Переставляем перетаскиваемую плитку на позицию целевой.
+// Переставляем перетаскиваемую плитку на позицию целевой (в активной группе).
 async function reorder(fromId, toId) {
-  const next = [...dials];
-  const fromIdx = next.findIndex((d) => d.id === fromId);
-  const toIdx = next.findIndex((d) => d.id === toId);
+  const list = activeGroup().dials;
+  const fromIdx = list.findIndex((d) => d.id === fromId);
+  const toIdx = list.findIndex((d) => d.id === toId);
   if (fromIdx === -1 || toIdx === -1) return;
 
-  const [moved] = next.splice(fromIdx, 1);
-  next.splice(toIdx, 0, moved);
-  await saveDials(next);
+  const [moved] = list.splice(fromIdx, 1);
+  list.splice(toIdx, 0, moved);
+  await saveGroups();
   render();
 }
 
@@ -366,10 +425,22 @@ async function reorder(fromId, toId) {
 
 function openDialog(dial) {
   editingId = dial ? dial.id : null;
+  editingGroupId = dial ? (findDial(dial.id)?.group.id ?? activeGroupId) : activeGroupId;
   selectedIcon = dial ? (dial.icon || "") : "";
   dialogTitle.textContent = dial ? "Редактировать сайт" : "Добавить сайт";
   fieldTitle.value = dial ? dial.title : "";
   fieldUrl.value = dial ? dial.url : "";
+
+  // Список групп в селекторе.
+  fieldGroup.textContent = "";
+  for (const group of groups) {
+    const opt = document.createElement("option");
+    opt.value = group.id;
+    opt.textContent = group.name;
+    fieldGroup.appendChild(opt);
+  }
+  fieldGroup.value = editingGroupId;
+
   renderIconChoices();
   dialog.showModal();
   fieldTitle.focus();
@@ -603,7 +674,10 @@ fieldTitle.addEventListener("input", () => {
 });
 
 async function removeDial(id) {
-  await saveDials(dials.filter((d) => d.id !== id));
+  const found = findDial(id);
+  if (!found) return;
+  found.group.dials = found.group.dials.filter((d) => d.id !== id);
+  await saveGroups();
   render();
 }
 
@@ -613,15 +687,29 @@ form.addEventListener("submit", async (e) => {
   const url = normalizeUrl(fieldUrl.value);
   if (!title || !url) return;
 
+  const targetGroup = groups.find((g) => g.id === fieldGroup.value) || activeGroup();
+
   // Иконка в выборе уже проверена на скачиваемость, так что просто
   // сохраняем выбранную как data URL (фолбэк на URL — крайний случай).
   const icon = await toDataUrl(selectedIcon);
+
   if (editingId) {
-    await saveDials(dials.map((d) => (d.id === editingId ? { ...d, title, url, icon } : d)));
+    const found = findDial(editingId);
+    const updated = { ...found.dial, title, url, icon };
+    if (found.group.id === targetGroup.id) {
+      found.group.dials = found.group.dials.map((d) => (d.id === editingId ? updated : d));
+    } else {
+      // Перемещение в другую группу.
+      found.group.dials = found.group.dials.filter((d) => d.id !== editingId);
+      targetGroup.dials.push(updated);
+    }
   } else {
-    await saveDials([...dials, { id: makeId(), title, url, icon }]);
+    targetGroup.dials.push({ id: makeId(), title, url, icon });
   }
+
+  await saveGroups();
   dialog.close();
+  renderTabs();
   render();
 });
 
@@ -629,15 +717,20 @@ cancelBtn.addEventListener("click", () => dialog.close());
 
 // --- Контекстное меню ---
 
-function showContextMenu(x, y, tileId) {
+function showContextMenu(x, y, { tileId = null, groupId = null } = {}) {
   ctxTargetId = tileId;
-  // Пункты для плитки и для фона взаимоисключающие.
-  contextMenu.querySelectorAll(".ctx__tile-only").forEach((el) => {
-    el.style.display = tileId ? "" : "none";
-  });
+  ctxTargetGroupId = groupId;
+  const mode = groupId ? "tab" : tileId ? "tile" : "bg";
   contextMenu.querySelectorAll(".ctx__bg-only").forEach((el) => {
-    el.style.display = tileId ? "none" : "";
+    el.style.display = mode === "bg" ? "" : "none";
   });
+  contextMenu.querySelectorAll(".ctx__tile-only").forEach((el) => {
+    el.style.display = mode === "tile" ? "" : "none";
+  });
+  contextMenu.querySelectorAll(".ctx__tab-only").forEach((el) => {
+    el.style.display = mode === "tab" ? "" : "none";
+  });
+  if (mode === "tile") populateMoveSubmenu(tileId);
 
   contextMenu.hidden = false;
   // Не даём меню вылезти за пределы окна.
@@ -651,28 +744,77 @@ function showContextMenu(x, y, tileId) {
 function hideContextMenu() {
   contextMenu.hidden = true;
   ctxTargetId = null;
+  ctxTargetGroupId = null;
+}
+
+// Заполнить подменю «Переместить в группу» списком других групп.
+function populateMoveSubmenu(tileId) {
+  ctxMoveSub.textContent = "";
+  const found = findDial(tileId);
+  const others = groups.filter((g) => g.id !== (found ? found.group.id : null));
+  if (!others.length) {
+    const empty = document.createElement("span");
+    empty.className = "ctx__submenu-empty";
+    empty.textContent = "Нет других групп";
+    ctxMoveSub.appendChild(empty);
+    return;
+  }
+  for (const group of others) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ctx__subitem";
+    btn.textContent = group.name;
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      moveDialToGroup(tileId, group.id);
+      hideContextMenu();
+    });
+    ctxMoveSub.appendChild(btn);
+  }
+}
+
+async function moveDialToGroup(dialId, groupId) {
+  const found = findDial(dialId);
+  const target = groups.find((g) => g.id === groupId);
+  if (!found || !target || found.group.id === groupId) return;
+  found.group.dials = found.group.dials.filter((d) => d.id !== dialId);
+  target.dials.push(found.dial);
+  await saveGroups();
+  render();
 }
 
 document.addEventListener("contextmenu", (e) => {
   // Не перехватываем правый клик внутри диалогов и меню.
   if (e.target.closest(".dialog") || e.target.closest(".ctx")) return;
   e.preventDefault();
+
+  const tab = e.target.closest(".tab:not(.tab--add)");
+  if (tab) {
+    showContextMenu(e.clientX, e.clientY, { groupId: tab.dataset.groupId });
+    return;
+  }
   const tile = e.target.closest(".tile");
-  showContextMenu(e.clientX, e.clientY, tile ? tile.dataset.id : null);
+  showContextMenu(e.clientX, e.clientY, { tileId: tile ? tile.dataset.id : null });
 });
 
 contextMenu.addEventListener("click", (e) => {
   const item = e.target.closest(".ctx__item");
   if (!item) return;
   const action = item.dataset.action;
-  const dial = dials.find((d) => d.id === ctxTargetId);
+  const dial = ctxTargetId ? findDial(ctxTargetId)?.dial : null;
 
   if (action === "add") {
     openDialog(null);
+  } else if (action === "create-group") {
+    openGroupDialog(null);
   } else if (action === "edit" && dial) {
     openDialog(dial);
   } else if (action === "remove" && dial) {
     removeDial(dial.id);
+  } else if (action === "rename-group" && ctxTargetGroupId) {
+    openGroupDialog(ctxTargetGroupId);
+  } else if (action === "delete-group" && ctxTargetGroupId) {
+    deleteGroup(ctxTargetGroupId);
   }
   hideContextMenu();
 });
@@ -685,6 +827,52 @@ window.addEventListener("scroll", hideContextMenu, true);
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") hideContextMenu();
 });
+
+// --- Группы ---
+
+function openGroupDialog(id) {
+  groupEditId = id;
+  const group = id ? groups.find((g) => g.id === id) : null;
+  groupDialogTitle.textContent = id ? "Переименовать группу" : "Новая группа";
+  groupNameInput.value = group ? group.name : "";
+  groupDialog.showModal();
+  groupNameInput.focus();
+}
+
+groupForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = groupNameInput.value.trim();
+  if (!name) return;
+
+  if (groupEditId) {
+    const group = groups.find((g) => g.id === groupEditId);
+    if (group) group.name = name;
+  } else {
+    const group = { id: makeId(), name, dials: [] };
+    groups.push(group);
+    await setActiveGroup(group.id);
+  }
+  await saveGroups();
+  groupDialog.close();
+  renderTabs();
+  render();
+});
+
+groupCancel.addEventListener("click", () => groupDialog.close());
+
+async function deleteGroup(id) {
+  if (groups.length <= 1) return; // последнюю группу не удаляем
+  const group = groups.find((g) => g.id === id);
+  if (group && group.dials.length &&
+      !confirm(`Удалить группу «${group.name}» со всеми плитками (${group.dials.length})?`)) {
+    return;
+  }
+  groups = groups.filter((g) => g.id !== id);
+  if (activeGroupId === id) await setActiveGroup(groups[0].id);
+  await saveGroups();
+  renderTabs();
+  render();
+}
 
 // --- Настройки вида ---
 
@@ -784,7 +972,15 @@ settingsDialog.addEventListener("close", () => {
 // --- Старт ---
 
 (async function init() {
-  [dials, settings] = await Promise.all([loadDials(), loadSettings()]);
+  const [loadedGroups, active, loadedSettings] = await Promise.all([
+    loadGroups(),
+    loadActive(),
+    loadSettings()
+  ]);
+  groups = loadedGroups;
+  settings = loadedSettings;
+  activeGroupId = groups.some((g) => g.id === active) ? active : groups[0].id;
   applySettings();
+  renderTabs();
   render();
 })();
