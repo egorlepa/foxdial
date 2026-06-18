@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Новая вкладка</title>
+  <link rel="stylesheet" href="newtab.css">
+</head>
+<body>
+  <button id="settings-btn" class="settings-btn" title="Настройки" aria-label="Настройки">⚙</button>
+
+  <main class="dial">
+    <ul id="grid" class="grid"></ul>
+  </main>
+
+  <!-- Шаблон плитки сайта -->
+  <template id="tile-template">
+    <li class="tile" draggable="true">
+      <a class="tile__link" href="#">
+        <span class="tile__favicon"></span>
+        <span class="tile__title"></span>
+      </a>
+    </li>
+  </template>
+
+  <!-- Контекстное меню (правый клик) -->
+  <nav id="context-menu" class="ctx" hidden>
+    <button type="button" class="ctx__item ctx__bg-only" data-action="add">Добавить сайт</button>
+    <button type="button" class="ctx__item ctx__tile-only" data-action="edit">Редактировать</button>
+    <button type="button" class="ctx__item ctx__tile-only" data-action="remove">Удалить</button>
+  </nav>
+
+  <!-- Диалог добавления/редактирования -->
+  <dialog id="dialog" class="dialog">
+    <form id="dialog-form" method="dialog" class="dialog__form">
+      <h2 id="dialog-title" class="dialog__heading">Добавить сайт</h2>
+      <label class="dialog__field">
+        <span>Название</span>
+        <input id="field-title" type="text" placeholder="Например, GitHub" required maxlength="40">
+      </label>
+      <label class="dialog__field">
+        <span>Адрес (URL)</span>
+        <input id="field-url" type="url" placeholder="https://github.com" required>
+      </label>
+      <div class="dialog__field">
+        <span>Иконка</span>
+        <div id="icon-choices" class="icon-choices"></div>
+      </div>
+      <div class="dialog__buttons">
+        <button type="button" id="dialog-cancel" class="btn btn--ghost">Отмена</button>
+        <button type="submit" class="btn btn--primary">Сохранить</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Диалог настроек вида -->
+  <dialog id="settings-dialog" class="dialog">
+    <form id="settings-form" method="dialog" class="dialog__form">
+      <h2 class="dialog__heading">Настройки вида</h2>
+
+      <label class="dialog__field">
+        <span>Колонок: <output id="cols-output"></output></span>
+        <input id="set-columns" type="range" min="2" max="8" step="1">
+      </label>
+
+      <label class="dialog__field">
+        <span>Ширина плитки: <output id="width-output"></output></span>
+        <input id="set-width" type="range" min="80" max="360" step="5">
+      </label>
+
+      <label class="dialog__field">
+        <span>Высота плитки: <output id="height-output"></output></span>
+        <input id="set-height" type="range" min="70" max="320" step="5">
+      </label>
+
+      <label class="dialog__field dialog__field--row">
+        <input id="set-follow-theme" type="checkbox">
+        <span>Подстраивать фон под системную тему</span>
+      </label>
+
+      <label class="dialog__field">
+        <span>Цвет фона</span>
+        <input id="set-bg-color" type="color">
+      </label>
+
+      <label class="dialog__field">
+        <span>Фоновая картинка (URL, необязательно)</span>
+        <input id="set-bg-image" type="url" placeholder="https://...jpg">
+      </label>
+
+      <div class="dialog__buttons">
+        <button type="button" id="settings-reset" class="btn btn--ghost">Сбросить</button>
+        <button type="submit" class="btn btn--primary">Готово</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="newtab.js"></script>
+</body>
+</html>

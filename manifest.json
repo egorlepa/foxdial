@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "FoxDial",
+  "version": "1.0.0",
+  "description": "Простой Speed Dial — сетка плиток с любимыми сайтами на странице новой вкладки.",
+  "icons": {
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png"
+  },
+  "permissions": ["storage", "unlimitedStorage"],
+  "optional_host_permissions": ["<all_urls>"],
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "foxdial@example.com",
+      "strict_min_version": "127.0"
+    }
+  }
+}

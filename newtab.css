@@ -1,0 +1,390 @@
+:root {
+  --bg: #1b1d2a;
+  --bg-accent: #232637;
+  --tile: #2b2f44;
+  --tile-hover: #353b56;
+  --text: #e8e9f0;
+  --text-dim: #9aa0b8;
+  --primary: #ff7a45;
+  --danger: #e5484d;
+  --radius: 14px;
+  --gap: 20px;
+
+  /* Настраиваемые пользователем */
+  --columns: 5;
+  --tile-height: 120px;
+  --favicon-size: 40px;
+  --tile-min: 140px;
+  --grid-max: 800px;
+}
+
+/* Светлая тема (когда включено «подстраивать под системную тему») */
+:root[data-theme="light"] {
+  --bg: #d6dae5;
+  --bg-accent: #eef1f6;
+  --tile: #ffffff;
+  --tile-hover: #ffffff;
+  --text: #1c1f2b;
+  --text-dim: #6b7185;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background-color: var(--bg);
+  background-image: radial-gradient(circle at 50% 0%, var(--bg-accent), var(--bg));
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  min-height: 100vh;
+}
+
+/* Когда задана фоновая картинка — затемняющий слой для читаемости */
+body.has-bg-image::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dial {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  margin: 0 auto;
+  padding: 80px 24px 48px;
+}
+
+.grid {
+  list-style: none;
+  margin: 0 auto;
+  padding: 0;
+  display: grid;
+  /* Колонки фиксированной ширины, переносятся при нехватке места.
+     --grid-max ограничивает их числом, заданным в настройках. */
+  grid-template-columns: repeat(auto-fit, minmax(0, var(--tile-min)));
+  justify-content: center;
+  max-width: var(--grid-max);
+  gap: var(--gap);
+}
+
+.tile {
+  position: relative;
+}
+
+.tile.dragging {
+  opacity: 0.4;
+}
+
+.tile.drag-over .tile__link {
+  outline: 2px dashed var(--primary);
+  outline-offset: 2px;
+}
+
+.tile__link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  height: var(--tile-height);
+  padding: 16px;
+  background: var(--tile);
+  border: none;
+  border-radius: var(--radius);
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  font: inherit;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.tile__link:hover {
+  background: var(--tile-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+}
+
+/* В светлой теме добавляем контур для чёткого разделения карточек. */
+:root[data-theme="light"] .tile__link {
+  border: 1px solid rgba(0, 0, 0, 0.07);
+}
+
+.tile__favicon {
+  width: var(--favicon-size);
+  height: var(--favicon-size);
+  border-radius: 10px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-color: transparent;
+  flex-shrink: 0;
+}
+
+.tile__favicon--mono {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: calc(var(--favicon-size) * 0.5);
+  background-image: none !important;
+}
+
+.tile__title {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  color: var(--text);
+}
+
+/* Контекстное меню */
+.ctx {
+  position: fixed;
+  z-index: 10;
+  width: max-content;
+  min-width: 180px;
+  padding: 6px;
+  background: var(--bg-accent);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ctx[hidden] {
+  display: none;
+}
+
+.ctx__item {
+  text-align: left;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.ctx__item:hover {
+  background: var(--tile-hover);
+}
+
+.ctx__item[data-action="remove"]:hover {
+  background: var(--danger);
+}
+
+/* Кнопка настроек */
+.settings-btn {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 2;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text);
+  font-size: 18px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s ease, transform 0.3s ease;
+}
+
+.settings-btn:hover {
+  opacity: 1;
+  transform: rotate(45deg);
+}
+
+/* Диалог */
+.dialog {
+  border: none;
+  border-radius: 16px;
+  padding: 0;
+  background: var(--bg-accent);
+  color: var(--text);
+  width: min(420px, 92vw);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.dialog__form {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.dialog__heading {
+  margin: 0;
+  font-size: 18px;
+}
+
+.dialog__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.dialog__field--row {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.dialog__field input:disabled {
+  opacity: 0.4;
+}
+
+.dialog__field input[type="text"],
+.dialog__field input[type="url"],
+.dialog__field select {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.dialog__field input[type="color"] {
+  width: 100%;
+  height: 38px;
+  padding: 2px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg);
+}
+
+.dialog__field input:focus,
+.dialog__field select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.icon-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.icon-choice {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  padding: 6px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: var(--bg);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.icon-choice:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.icon-choice.selected {
+  border-color: var(--primary);
+}
+
+.icon-choice img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.icon-choice__mono {
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 600;
+  color: #fff;
+  text-transform: uppercase;
+}
+
+.icon-choices__empty {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.icon-more-btn {
+  align-self: center;
+  height: 56px;
+  padding: 0 14px;
+  border: 2px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.icon-more-btn:hover {
+  border-color: var(--primary);
+  color: var(--text);
+}
+
+.dialog__buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.btn {
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.btn--primary {
+  background: var(--primary);
+  color: #1b1d2a;
+  font-weight: 600;
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--text-dim);
+}
+
+.btn--ghost:hover {
+  color: var(--text);
+}
