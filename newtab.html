@@ -105,6 +105,11 @@
         <span>Match system theme</span>
       </label>
 
+      <label class="dialog__field dialog__field--row">
+        <input id="set-sync" type="checkbox">
+        <span>Sync across devices (Firefox Account)</span>
+      </label>
+
       <label class="dialog__field">
         <span>Background color</span>
         <input id="set-bg-color" type="color">
@@ -114,6 +119,15 @@
         <span>Background image (URL, optional)</span>
         <input id="set-bg-image" type="url" placeholder="https://...jpg">
       </label>
+
+      <div class="dialog__field">
+        <span>Backup</span>
+        <div class="backup-row">
+          <button type="button" id="export-btn" class="btn btn--ghost">Export…</button>
+          <button type="button" id="import-btn" class="btn btn--ghost">Import…</button>
+          <input id="import-file" type="file" accept="application/json,.json" hidden>
+        </div>
+      </div>
 
       <div class="dialog__buttons">
         <button type="button" id="settings-reset" class="btn btn--ghost">Reset</button>

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FoxDial",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A simple speed dial — a grid of your favorite site tiles on the new-tab page.",
   "icons": {
     "48": "icons/icon-48.png",

@@ -458,6 +458,29 @@ body.has-bg-image::before {
   color: var(--text);
 }
 
+.backup-row {
+  display: flex;
+  gap: 10px;
+}
+
+.backup-row .btn {
+  flex: 1;
+  text-align: center;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.backup-row .btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+:root[data-theme="light"] .backup-row .btn {
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
 .dialog__buttons {
   display: flex;
   justify-content: flex-end;

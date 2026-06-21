@@ -4,7 +4,9 @@ const STORAGE_KEY = "dials"; // старый ключ (для миграции)
 const GROUPS_KEY = "groups";
 const ACTIVE_KEY = "activeGroup";
 const SETTINGS_KEY = "settings";
-const MIN_ICON_SIZE = 64; // мельче — не показываем в выборе
+const REV_KEY = "rev"; // монотонная ревизия данных (для синка)
+const MIN_ICON_SIZE = 32; // мельче — не показываем (32px — стандартный favicon)
+const SYNC_CHUNK = 6000; // размер чанка для storage.sync (лимит ~8 КБ/элемент)
 
 // Дефолтный набор плиток при первом запуске.
 const DEFAULT_DIALS = [
@@ -18,6 +20,7 @@ const DEFAULT_SETTINGS = {
   tileWidth: 140, // ширина плитки в px
   tileHeight: 120, // высота плитки в px
   followTheme: false, // фон следует системной светлой/тёмной теме
+  sync: false, // синхронизация структуры между устройствами через storage.sync
   bgColor: "#1b1d2a",
   bgImage: ""
 };
@@ -62,13 +65,20 @@ const widthOutput = document.getElementById("width-output");
 const setHeight = document.getElementById("set-height");
 const heightOutput = document.getElementById("height-output");
 const setFollowTheme = document.getElementById("set-follow-theme");
+const setSync = document.getElementById("set-sync");
 const setBgColor = document.getElementById("set-bg-color");
 const setBgImage = document.getElementById("set-bg-image");
 const settingsReset = document.getElementById("settings-reset");
+const exportBtn = document.getElementById("export-btn");
+const importBtn = document.getElementById("import-btn");
+const importFile = document.getElementById("import-file");
 
 let groups = []; // [{ id, name, dials: [...] }]
 let activeGroupId = null;
 let settings = { ...DEFAULT_SETTINGS };
+let rev = 0; // текущая ревизия данных
+let applyingRemote = false; // идёт применение изменений из облака — не пушим обратно
+let syncTimer = null; // дебаунс пуша в облако
 let editingId = null; // id редактируемой плитки или null при добавлении
 let editingGroupId = null; // группа редактируемой плитки
 let selectedIcon = ""; // выбранная иконка: "" (авто), URL или "monogram"
@@ -92,7 +102,14 @@ async function loadGroups() {
 }
 
 async function saveGroups() {
-  await browser.storage.local.set({ [GROUPS_KEY]: groups });
+  bumpRev();
+  await browser.storage.local.set({ [GROUPS_KEY]: groups, [REV_KEY]: rev });
+  scheduleSync();
+}
+
+// Поднять ревизию (не во время применения удалённых изменений).
+function bumpRev() {
+  if (!applyingRemote) rev = Date.now();
 }
 
 async function loadActive() {
@@ -120,6 +137,89 @@ function findDial(id) {
   return null;
 }
 
+// --- Синхронизация между устройствами (storage.sync) ---
+// Синкаем только структуру: base64-иконки тяжёлые и не влезут в квоту,
+// поэтому в облако они идут пустыми, а локально остаются закешированными.
+
+function stripIcons(gs) {
+  return gs.map((g) => ({
+    ...g,
+    dials: g.dials.map((d) => ({
+      ...d,
+      icon: (d.icon || "").startsWith("data:") ? "" : d.icon
+    }))
+  }));
+}
+
+// Вернуть локальные base64-иконки на пришедшую из облака структуру
+// (по id плитки и совпадению url) — чтобы это устройство не теряло кеш.
+function reattachIcons(incoming, localGroups) {
+  const byId = {};
+  for (const g of localGroups) for (const d of g.dials) byId[d.id] = d;
+  return incoming.map((g) => ({
+    ...g,
+    dials: g.dials.map((d) => {
+      const loc = byId[d.id];
+      if (loc && (loc.icon || "").startsWith("data:") && loc.url === d.url) {
+        return { ...d, icon: loc.icon };
+      }
+      return d;
+    })
+  }));
+}
+
+function scheduleSync() {
+  if (!settings.sync || applyingRemote) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(syncWrite, 800);
+}
+
+async function syncWrite() {
+  const payload = { rev, groups: stripIcons(groups), activeGroup: activeGroupId, settings };
+  const str = JSON.stringify(payload);
+  const obj = { _n: Math.ceil(str.length / SYNC_CHUNK), _rev: rev };
+  for (let i = 0; i * SYNC_CHUNK < str.length; i++) {
+    obj["c" + i] = str.slice(i * SYNC_CHUNK, (i + 1) * SYNC_CHUNK);
+  }
+  try {
+    await browser.storage.sync.clear();
+    await browser.storage.sync.set(obj);
+  } catch (e) {
+    console.warn("[sync] write failed:", e);
+    alert("Sync failed (probably too much data for the sync quota): " + e.message);
+  }
+}
+
+async function syncRead() {
+  try {
+    const all = await browser.storage.sync.get(null);
+    if (!all._n) return null;
+    let str = "";
+    for (let i = 0; i < all._n; i++) str += all["c" + i] || "";
+    return JSON.parse(str);
+  } catch (e) {
+    console.warn("[sync] read failed:", e);
+    return null;
+  }
+}
+
+// Применить структуру из облака, если она новее локальной.
+async function adoptFromSync(payload) {
+  if (!payload || payload.rev <= rev) return false;
+  applyingRemote = true;
+  groups = reattachIcons(payload.groups, groups);
+  settings = { ...DEFAULT_SETTINGS, ...(payload.settings || {}) };
+  activeGroupId = groups.some((g) => g.id === payload.activeGroup)
+    ? payload.activeGroup : groups[0].id;
+  rev = payload.rev;
+  await browser.storage.local.set({
+    [GROUPS_KEY]: groups, [SETTINGS_KEY]: settings,
+    [ACTIVE_KEY]: activeGroupId, [REV_KEY]: rev
+  });
+  applyingRemote = false;
+  return true;
+}
+
 async function loadSettings() {
   const stored = await browser.storage.local.get(SETTINGS_KEY);
   const merged = { ...DEFAULT_SETTINGS, ...(stored[SETTINGS_KEY] || {}) };
@@ -139,7 +239,9 @@ async function loadSettings() {
 
 async function saveSettings(next) {
   settings = next;
-  await browser.storage.local.set({ [SETTINGS_KEY]: next });
+  bumpRev();
+  await browser.storage.local.set({ [SETTINGS_KEY]: next, [REV_KEY]: rev });
+  scheduleSync();
 }
 
 // --- Утилиты ---
@@ -892,6 +994,7 @@ function fillSettingsForm(s) {
   setHeight.value = s.tileHeight;
   heightOutput.textContent = `${s.tileHeight}px`;
   setFollowTheme.checked = s.followTheme;
+  setSync.checked = s.sync;
   setBgColor.value = s.bgColor;
   setBgColor.disabled = s.followTheme; // под темой ручной цвет не нужен
   setBgImage.value = s.bgImage;
@@ -904,6 +1007,7 @@ function readSettingsForm() {
     tileWidth: Number(setWidth.value),
     tileHeight: Number(setHeight.value),
     followTheme: setFollowTheme.checked,
+    sync: setSync.checked,
     bgColor: setBgColor.value,
     bgImage: setBgImage.value.trim()
   };
@@ -953,15 +1057,79 @@ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () 
 
 settingsForm.addEventListener("submit", async (e) => {
   e.preventDefault();
+  const next = readSettingsForm();
+  const enablingSync = next.sync && settingsSnapshot && !settingsSnapshot.sync;
   settingsCommitted = true;
-  await saveSettings(readSettingsForm());
+  await saveSettings(next);
   applySettings();
   settingsDialog.close();
+
+  // При включении синка: если в облаке уже есть данные (с другого
+  // устройства) — подтягиваем их, а не перезаписываем своими.
+  if (enablingSync) {
+    clearTimeout(syncTimer); // отменяем запланированный пуш до решения
+    const payload = await syncRead();
+    if (payload && Array.isArray(payload.groups) && payload.groups.length) {
+      applyingRemote = true;
+      groups = reattachIcons(payload.groups, groups);
+      settings = { ...DEFAULT_SETTINGS, ...(payload.settings || {}), sync: true };
+      activeGroupId = groups.some((g) => g.id === payload.activeGroup)
+        ? payload.activeGroup : groups[0].id;
+      rev = payload.rev;
+      await browser.storage.local.set({
+        [GROUPS_KEY]: groups, [SETTINGS_KEY]: settings,
+        [ACTIVE_KEY]: activeGroupId, [REV_KEY]: rev
+      });
+      applyingRemote = false;
+      applySettings();
+      renderTabs();
+      render();
+    } else {
+      syncWrite(); // облако пустое — заливаем своё
+    }
+  }
 });
 
 settingsReset.addEventListener("click", () => {
   fillSettingsForm({ ...DEFAULT_SETTINGS });
   previewSettings();
+});
+
+// --- Экспорт / импорт (бэкап в файл) ---
+
+async function exportData() {
+  const data = await browser.storage.local.get([GROUPS_KEY, ACTIVE_KEY, SETTINGS_KEY]);
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `foxdial-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function importData(file) {
+  try {
+    const data = JSON.parse(await file.text());
+    if (!Array.isArray(data[GROUPS_KEY]) || !data[GROUPS_KEY].length) {
+      alert("Invalid backup file: no groups found.");
+      return;
+    }
+    const toSet = { [GROUPS_KEY]: data[GROUPS_KEY], [REV_KEY]: Date.now() };
+    if (data[SETTINGS_KEY]) toSet[SETTINGS_KEY] = data[SETTINGS_KEY];
+    if (data[ACTIVE_KEY]) toSet[ACTIVE_KEY] = data[ACTIVE_KEY];
+    await browser.storage.local.set(toSet);
+    location.reload(); // перечитываем всё с чистого листа (и запушим в облако, если синк вкл)
+  } catch (e) {
+    alert("Could not import this file: " + e.message);
+  }
+}
+
+exportBtn.addEventListener("click", exportData);
+importBtn.addEventListener("click", () => importFile.click());
+importFile.addEventListener("change", () => {
+  if (importFile.files[0]) importData(importFile.files[0]);
+  importFile.value = ""; // чтобы повторно выбрать тот же файл
 });
 
 // При закрытии без сохранения (Esc, клик по фону) — откатить превью.
@@ -973,17 +1141,38 @@ settingsDialog.addEventListener("close", () => {
   settingsSnapshot = null;
 });
 
+// Живое применение изменений из облака (другое устройство обновило данные).
+browser.storage.onChanged.addListener(async (changes, area) => {
+  if (area !== "sync" || !settings.sync || applyingRemote) return;
+  if (!changes._rev || changes._rev.newValue <= rev) return;
+  const payload = await syncRead();
+  if (await adoptFromSync(payload)) {
+    applySettings();
+    renderTabs();
+    render();
+  }
+});
+
 // --- Старт ---
 
 (async function init() {
-  const [loadedGroups, active, loadedSettings] = await Promise.all([
+  const [loadedGroups, active, loadedSettings, store] = await Promise.all([
     loadGroups(),
     loadActive(),
-    loadSettings()
+    loadSettings(),
+    browser.storage.local.get(REV_KEY)
   ]);
   groups = loadedGroups;
   settings = loadedSettings;
+  rev = store[REV_KEY] || 0;
   activeGroupId = groups.some((g) => g.id === active) ? active : groups[0].id;
+
+  // Первичная синхронизация: подтянуть из облака, если новее; иначе запушить своё.
+  if (settings.sync) {
+    const payload = await syncRead();
+    if (!(await adoptFromSync(payload))) syncWrite();
+  }
+
   applySettings();
   renderTabs();
   render();
